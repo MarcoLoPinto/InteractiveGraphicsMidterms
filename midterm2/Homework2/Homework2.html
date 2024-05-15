@@ -1,0 +1,368 @@
+<!-- NOTICE
+    to load images, please create a local server in order to bypass browser restrictions.
+    The root folder must be the parent folder of Homework1 and Common,
+    a.k.a interactive-graphics-2021-homework1-MarcoLoPinto-university.
+-->
+<!DOCTYPE html>
+<html>
+<body style="background-color:cadetblue;">
+
+<div style="width: 100%; margin: auto; display: flex; flex-direction: row; justify-content: center;">
+    <div style="display: flex; flex-direction: column; justify-content: center;">
+        <span>FPS:</span>
+        <span id = "fps">?</span><br>
+
+        <span>Position coordinates:</span>
+        <span id = "coords">?</span>
+
+        <span>Angle coordinates:</span>
+        <span id = "angle">?</span>
+
+        <span>Near view:</span>
+        <span id = "near">?</span>
+
+        <span>Far view:</span>
+        <span id = "far">?</span>
+    </div>
+
+    <canvas id="gl-canvas" width="512" height="512">
+        Your browser does not support canvas
+    </canvas>
+
+    <div style="display: flex; flex-direction: column; justify-content: center;">
+        <button id = "ButtonVertexLighting">Use vertex lighting</button>
+        <button id = "ButtonFragmentLighting">Use fragment lighting</button>
+        <button id = "ButtonFragmentLightingBump">Use fragment lighting+bump</button><br>
+        <span>Near view</span>
+        <input id="nearSlider" type="range" min="0" max="3" step="0.1" value="0.3" />
+        <span>Far view</span>
+        <input id="farSlider" type="range" min="3" max="28" step="0.1" value="18" /><br>
+        <button id = "ButtonCylLights">Toggle cylinder lights</button>
+        <button id = "ButtonSun">Toggle sun</button><br>
+        <button id = "ButtonTerrain">Toggle terrain</button><br>
+        <button id = "ButtonAnimation">Start sheep animation</button>
+    </div>
+</div>
+
+
+<p class="">
+    Move with the buttons on the page or with your keyboard. 
+    Use w,a,s,d to walk. Use up,down,left,right to rotate your view.
+    Use shift and space to respectively fly down and up (y-axis).
+</p>
+
+<div style="margin: auto; display: flex; flex-direction: row; justify-content: center;">
+    <div style="text-align:center;">
+                <button id="wButton">W</button><br>
+        <button id="aButton">A</button><button id="dButton">D</button><br>
+                <button id="sButton">S</button><br><br>
+    </div>
+    <div style="margin:20px;">
+        <button id="flydButton">SHIFT</button><button id="flyuButton">SPACE</button>
+    </div>
+    <div style="text-align:center;">
+                <button id="upButton">UP</button><br>
+        <button id="leftButton">LEFT</button><button id="rightButton">RIGHT</button><br>
+                <button id="downButton">DOWN</button>
+    </div>
+</div>
+
+<p id="debug"></p>
+
+<script id="vertex-shader-vertexLighting" type="x-shader/x-vertex">
+    #version 300 es
+    
+    in  vec4 aPosition;
+    in  vec3 aNormal;
+    out vec4 vColor;
+    
+    // lights
+    const int MAX_NUM_LIGHTS = 5;
+    uniform int uNumLights;
+    uniform vec4 uAmbientProduct[MAX_NUM_LIGHTS], 
+                 uDiffuseProduct[MAX_NUM_LIGHTS], 
+                 uSpecularProduct[MAX_NUM_LIGHTS];
+    uniform float uShininess;
+
+    uniform vec4 uLightPosition[MAX_NUM_LIGHTS];
+    
+    uniform mat4 uModelMatrix;
+    uniform mat4 uViewMatrix;
+    uniform mat4 uProjectionMatrix;
+    
+    // texture
+    in vec2 aTexCoord;
+    out vec2 vTexCoord;
+    
+    void main(){
+        // pos is from model -> in world coords -> in view coords
+        vec3 pos = (uViewMatrix * uModelMatrix * aPosition).xyz;
+
+        // eye vector (pos towards coords 0,0,0)
+        vec3 E = normalize(-pos);
+
+        vec4 NN = vec4(aNormal,0);
+        // Transform vertex normal into eye coordinates
+        vec3 N = normalize((uViewMatrix * uModelMatrix*NN).xyz);
+        
+        // compute for each light
+        for(int i=0; i<uNumLights; i++){
+            // fixed light postion, passing in view coords
+            vec3 light = (uViewMatrix * uLightPosition[i]).xyz;
+            vec3 L = normalize(light - pos);
+            // check if light is at infinite
+            if(uLightPosition[i].w == 0.0) L = normalize(light);
+
+            // median vector H between L and E
+            vec3 H = normalize(L + E);
+
+            // Compute terms in the illumination equation
+            vec4 ambient = uAmbientProduct[i];
+
+            float Kd = max(dot(L, N), 0.0);
+            vec4 diffuse = Kd*uDiffuseProduct[i];
+
+            float Ks = pow( max(dot(N, H), 0.0), uShininess );
+            vec4 specular = Ks * uSpecularProduct[i];
+
+            if( dot(L, N) < 0.0 ) {
+                specular = vec4(0.0, 0.0, 0.0, 1.0);
+            }
+
+            vColor += ambient + diffuse + specular;
+        }
+        vColor.a = 1.0;
+    
+        gl_Position = uProjectionMatrix * uViewMatrix * uModelMatrix * aPosition;
+    
+        vTexCoord = aTexCoord;
+
+    }
+</script>
+
+<script id="fragment-shader-vertexLighting" type="x-shader/x-fragment">
+    #version 300 es
+
+    precision mediump float;
+
+    in vec4 vColor;
+    out vec4 fColor;
+
+    // texture
+    in vec2 vTexCoord;
+    uniform sampler2D uTextureMap;
+    uniform int uHasTexture;
+
+    // emissivity = the object is a lightsource
+    uniform mediump vec4 uEmissivity;
+    uniform mediump int uIsLightSource;
+
+    void main(){
+        vec4 outFragment;
+        if(uHasTexture == 1) outFragment = vColor * texture(uTextureMap, vTexCoord);
+        else if(uIsLightSource == 1){ 
+            outFragment = uEmissivity;
+        }
+        else outFragment = vColor;
+        
+        fColor = outFragment;
+    }
+</script>
+
+<script id="vertex-shader-fragmentLighting" type="x-shader/x-vertex">
+    #version 300 es
+
+    const int MAX_NUM_LIGHTS = 5;
+    
+    in  vec4 aPosition;
+    in  vec3 aNormal;
+
+    // texture
+    in vec2 aTexCoord;
+    out vec2 vTexCoord;
+    
+    in vec4 aColor;
+    out vec3 vN,vE;
+    out vec3 vL[MAX_NUM_LIGHTS];
+    out vec4 vColor;
+    
+    // lights
+    uniform mediump int uNumLights;
+
+    uniform vec4 uLightPosition[MAX_NUM_LIGHTS];
+    
+    uniform mat4 uModelMatrix;
+    uniform mat4 uViewMatrix;
+    uniform mat4 uProjectionMatrix;
+    uniform mat3 uNormalMatrix;
+
+    // bump
+    in vec3 aTangent;
+    in vec2 aBumpCoord;
+    out vec2 vBumpCoord;
+    out vec3 vT,vB;
+    uniform mediump int uHasBump;
+    
+    void main(){
+        // pos is in view space
+        vec3 pos = (uViewMatrix * uModelMatrix * aPosition).xyz;
+
+        // eye vector (pos towards coords 0,0,0)
+        vec3 E = normalize(-pos);
+        vE = E;
+
+        // Transform vertex normal into eye coordinates
+        vN = normalize(uNormalMatrix*aNormal.xyz);
+        // Get tangent vector
+        vT = normalize(uNormalMatrix*aTangent);
+        // Get bitangent vector
+        vB = cross(vN, vT);
+        
+        // compute for each light
+        for(int i=0; i<uNumLights; i++){
+            // fixed light postion, passing in view coords
+            vec3 light = (uViewMatrix * uLightPosition[i]).xyz;
+            vec3 L = normalize(light - pos);
+            // check if light is at infinite
+            if(uLightPosition[i].w == 0.0) L = normalize(light);
+            
+            vL[i] = L;
+        }
+    
+        gl_Position = uProjectionMatrix * uViewMatrix * uModelMatrix * aPosition;
+        
+        vTexCoord = aTexCoord;
+
+        vBumpCoord = aBumpCoord;
+
+        vColor = aColor;
+    }
+</script>
+
+<script id="fragment-shader-fragmentLighting" type="x-shader/x-fragment">
+    #version 300 es
+
+    const int MAX_NUM_LIGHTS = 5;
+
+    precision mediump float;
+
+    uniform mediump int uNumLights;
+
+    in vec4 vColor;
+    in vec3 vN,vE;
+    in vec3 vL[MAX_NUM_LIGHTS];
+    out vec4 fColor;
+
+    uniform vec4 uAmbientProduct[MAX_NUM_LIGHTS], 
+                 uDiffuseProduct[MAX_NUM_LIGHTS], 
+                 uSpecularProduct[MAX_NUM_LIGHTS];
+    uniform float uShininess;
+
+    // texture
+    in vec2 vTexCoord;
+    uniform sampler2D uTextureMap;
+    uniform int uHasTexture;
+
+    // bump
+    uniform sampler2D uBumpMap;
+    uniform mediump int uHasBump;
+    in vec2 vBumpCoord;
+    in vec3 vT, vB;
+
+    // emissivity = the object is a lightsource
+    uniform mediump vec4 uEmissivity;
+    uniform mediump int uIsLightSource;
+
+    void main(){
+        // compute eye if bump is enabled
+        vec3 E = vE;
+        if(uHasBump == 1){
+            E.x = dot(vT, vE);
+            E.y = dot(vB, vE);
+            E.z = dot(vN, vE);
+            E = normalize(E);
+        }
+        vec3 N = vN;
+        // if bump is enabled
+        if(uHasBump == 1){
+            vec4 NB = texture(uBumpMap, vBumpCoord);
+            N = normalize(2.0*NB.xyz-1.0);
+        }
+        // compute for each light
+        vec4 outColor = vec4(0.0, 0.0, 0.0, 1.0);
+        for(int i=0; i<uNumLights; i++){
+            // fixed light postion
+            vec3 L = vL[i];
+            // compute light if bump is enabled
+            if(uHasBump == 1){
+                L.x = dot(vT, L);
+                L.y = dot(vB, L);
+                L.z = dot(vN, L);
+                L = normalize(L);
+            }
+            // median vector H between L and E
+            vec3 H = normalize(L + E);
+
+            // Compute terms in the illumination equation
+            vec4 ambient = uAmbientProduct[i];
+
+            float Kd = max(dot(L, N), 0.0);
+            vec4 diffuse = vec4(Kd * uDiffuseProduct[i].xyz, uDiffuseProduct[i].w);
+
+            float Ks = pow( max(dot(N, H), 0.0), uShininess );
+            vec4 specular = vec4(Ks * uSpecularProduct[i].xyz, uSpecularProduct[i].w);
+
+            if( dot(L, N) < 0.0 ) {
+                specular = vec4(0.0, 0.0, 0.0, 1.0);
+            }
+
+            outColor += ambient + diffuse + specular;
+        }
+        outColor.a = 1.0;
+
+        vec4 outFragment;
+        if(uHasTexture == 1) outFragment = outColor * texture(uTextureMap, vTexCoord);
+        else if(uIsLightSource == 1){ 
+            outFragment = uEmissivity;
+        }
+        else outFragment = outColor;
+
+        outFragment.a = 1.0;
+        fColor = outFragment;
+    }
+</script>
+
+<script src="../Common/initShaders.js"></script>
+<script src="../Common/MVnew.js"></script>
+
+<script src="./tools/Camera.js"></script>
+<script src="./tools/Lights.js"></script>
+<script src="./tools/Shape.js"></script>
+<script src="./tools/AnimationObject.js"></script>
+<script src="./tools/AnimationsManager.js"></script>
+<script src="./tools/ObjectMaterial.js"></script>
+<script src="./tools/Background.js"></script>
+
+<!-- only to test bump -->
+<script src="./textures/honolulu256.js"></script> 
+
+<script src="./shapes/PrincipalShape.js"></script>
+<script src="./shapes/CubeShape.js"></script>
+<script src="./shapes/Cylinder.js"></script>
+<script src="./shapes/Sphere.js"></script>
+<script src="./shapes/Floor.js"></script>
+
+<script src="./Homework2.js"></script>
+
+
+</body>
+</html>
+
+<!--
+    * aVariable -> vVariable -> fVariable
+    * a = external (js), v = vertex shader, f = fragment shader
+    * in the vertex: a is input, v is output
+    * in the fragment: v is input, f is output
+    * u = uniform, fixed variables equal for all verices. Uniform variables are used to communicate with your vertex or fragment shader from "outside".
+    * a = attributes are inputs to a vertex shader that get their data from buffers.
+-->
