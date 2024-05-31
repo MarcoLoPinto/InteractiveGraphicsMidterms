@@ -43,4 +43,5 @@ The final project (3D First-Person Shooter with enemies, doors, stairs, explosiv
 
 ## Midterm 2 Showcase
 
-[View Midterm Showcase Video](showcase/sheep.mp4)
+https://github.com/MarcoLoPinto/InteractiveGraphicsMidterms/assets/30478903/46fd7f65-7c75-4de9-af03-18400fa12add
+
