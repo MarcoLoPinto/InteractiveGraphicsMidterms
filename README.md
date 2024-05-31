@@ -44,5 +44,5 @@ The final project (3D First-Person Shooter with enemies, doors, stairs, explosiv
 ## Midterm 2 Showcase
 
 <video width="100%" style="max-width: 860px" controls>
-    <source src="./showcase/sheep.mp4" type="video/mp4">
+    <source src="showcase/sheep.mp4" type="video/mp4">
 </video>
