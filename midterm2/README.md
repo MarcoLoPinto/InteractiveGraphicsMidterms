@@ -29,8 +29,3 @@ All components are cubes, use the cube function present in the file. The sheep h
 6.	Allow the user to move the camera before and during the animation.
 
 Describe your solution in a short document (2-3) describing your solution, the document should include a brief description of the techniques used, the advantages and disadvantages of the proposed solution, the features of your solution.
-
-How to submit the homework
-All files MUST be uploaded to the GitHub Classroom of this assignment, including the documentation.  DO NOT ACTIVATE GITHUB PAGES
-
-Don’t post solutions on Google Classroom. Use Google Classroom only for questions and clarifications. Do not ask for clarifications or comments by email, use only Google Classroom

@@ -14,6 +14,3 @@ You need to modify the files so to obtain the following effects:
 7.	Create a procedural normal map that gives the appearance of a very rough surface. Attach the bump texture to the geometry you defined in point 1. Add a button that activates/deactivates the texture.
 
 Describe your solution in a short PDF document (2-3 pages) describing the techniques used, the advantages and disadvantages of the proposed solution and the features of your solution. 
-
-How to submit the homework
-The solution should be delivered on the GitHub Classroom repository. DO NOT USE YOUR GITHUB PERSONAL ACCOUNT. Do not post solutions or code on Google Classroom. Use Google Classroom only for questions and clarifications. Do not ask for clarifications or comments by email, use only Google Classroom
